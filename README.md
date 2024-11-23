@@ -3,7 +3,7 @@
 
 
 ignoring all the ph/placeholders this is a typical django project make use of hack for the main folder. hack_app is the app created here.
-there is one more thing since we have used firebase we have added an api key to our file so you will have to generate an api key and make necessary changes.the steps are below
+there is one more thing since we have used firebase we have added an api key to our file so you will have to generate an api key and make necessary changes.the steps are below.
 
 Firebase Service Account Integration
 This project integrates Firebase for handling image uploads and related operations. To enable Firebase functionality, the provided service account JSON file must be set up correctly.
