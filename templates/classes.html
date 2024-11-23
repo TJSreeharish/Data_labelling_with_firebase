@@ -1,0 +1,76 @@
+<style>
+    .home-btn {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        padding: 10px 20px;
+        background-color: #010401;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+    }
+    
+    .home-btn:hover {
+        background-color: #000801;
+    }
+
+    .clear-btn {
+        background-color: #ff4444;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+
+    .clear-btn:hover {
+        background-color: #cc0000;
+    }
+
+    .button-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+</style>
+
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LabelHub</title>
+    <link rel="stylesheet" href="{% static 'css/styling.css' %}">
+</head>
+<body>
+    <a class="btn-getstarted home-btn" href="organization">Back</a>
+    <div class="container">
+        <div class="login-box">
+            <h2>Upload The Classes!</h2>
+            <form method="POST" action="classes">
+                {% csrf_token %}
+                <div class="input-box">
+                    <label for="Classes">Classes</label>
+                    <input type="text" id="Classes" name="classes" placeholder="Enter Classes" required>
+                </div>
+                <div class="button-container">
+                    <button class="submit-btn">Submit</button>
+                </div>
+            </form>
+            <!-- Separate form for clearing database -->
+            <form method="POST" action="classes">
+                {% csrf_token %}
+                <div class="button-container">
+                    <button type="submit" name="clear_database" class="clear-btn">Clear Database</button>
+                </div>
+            </form>
+        </div>
+        <div class="illustration">
+            <img src="{% static 'img/up.jpg' %}" alt="Laptop Illustration">
+        </div>
+    </div>
+</body>
+</html>

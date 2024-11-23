@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bounding Box Annotator with Categories and Image Navigation</title>
+    <link rel="stylesheet" href="styli.css">
+    <style>
+        /* General page styling */
+        body {
+            background-color: #e6e9fd;
+            font-family: Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        /* Container styling */
+        #bbox_annotator {
+            display: flex;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* Image frame styling */
+        .image_frame {
+            position: relative;
+            cursor: crosshair;
+            width: 800px;
+            height: 600px;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            border: 1px solid #dcdcdc;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-right: 20px;
+        }
+
+        /* Control panel styling */
+        .controls {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Ensure space is distributed */
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f7f9ff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+            width: 250px;
+        }
+
+        /* Button styling */
+        .controls .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .controls button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4a90e2;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        .controls button:hover {
+            background-color: #357abd;
+        }
+
+        /* Category selection styling */
+        .controls h3 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .controls label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .controls label input {
+            margin-right: 8px;
+        }
+
+        /* Next image button styling */
+        .nav_controls {
+            text-align: center;
+            margin-top: auto; /* Push it to the bottom */
+        }
+
+        .nav_controls button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4a90e2;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+
+        .nav_controls button:hover {
+            background-color: #357abd;
+        }
+
+        /* Bounding box styles */
+        .bbox_selector, .annotated_bounding_box {
+            border: 2px solid;
+            position: absolute;
+            box-sizing: border-box;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="bbox_annotator">
+    <div class="image_frame" style="background-image: url('{{ image_url }}');"></div>
+    <div class="controls">
+        <div class="button-group">
+            <button onclick="annotator.undoLast()">Undo</button>
+            <button onclick="annotator.clearAll()">Reset</button>
+            <button id="sendData">Submit</button>
+        </div>
+        <h3>Select Category</h3>
+        {% for feature in features %}
+            <label>
+                <input type="radio" name="category" value="{{ feature.cat }}" data-color="red" data-object-selected="{{ forloop.counter }}">
+                {{ feature.cat }}
+            </label>
+        {% endfor %}
+        <div class="nav_controls">
+            <a href="{% url 'firebase_image' %}?index={{ next_index }}">
+                <button>Next Image</button>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+  (function() {
+    class BBoxSelector {
+      constructor(image_frame) {
+        this.image_frame = image_frame;
+        this.selector = document.createElement("div");
+        this.selector.classList.add("bbox_selector");
+        this.selector.style.display = "none";
+        this.image_frame.appendChild(this.selector);
+      }
+      
+      start(x, y, color) {
+        this.selector.style.display = "block";
+        this.selector.style.borderColor = color;
+        this.startX = x;
+        this.startY = y;
+        this.update(x, y);
+      }
+      
+      update(x, y) {
+        const left = Math.min(this.startX, x);
+        const top = Math.min(this.startY, y);
+        const width = Math.abs(this.startX - x);
+        const height = Math.abs(this.startY - y);
+        
+        Object.assign(this.selector.style, {
+          left: `${left}px`,
+          top: `${top}px`,
+          width: `${width}px`,
+          height: `${height}px`
+        });
+      }
+      
+      finish() {
+        const rect = this.selector.getBoundingClientRect();
+        const frameRect = this.image_frame.getBoundingClientRect();
+        const { left, top, width, height } = rect;
+        this.selector.style.display = "none";
+        return { 
+          left: left - frameRect.left, 
+          top: top - frameRect.top, 
+          width, 
+          height 
+        };
+      }
+    }
+
+    class BBoxAnnotator {
+      constructor(options) {
+        this.annotator_element = document.querySelector(options.id);
+        this.entries = [];
+        
+        this.image_frame = this.annotator_element.querySelector(".image_frame");
+        this.image = new Image();
+        this.image.src = options.url;
+        this.image.onload = () => {
+          this.image_frame.style.backgroundImage = `url(${this.image.src})`;
+          this.selector = new BBoxSelector(this.image_frame);
+          this.initializeEvents();
+        };
+      }
+      
+      initializeEvents() {
+        let drawing = false;
+        let color = "red"; // default color
+        
+        this.image_frame.addEventListener("mousedown", (e) => {
+          const categoryRadio = document.querySelector("input[name='category']:checked");
+          if (!categoryRadio) {
+            alert("Please select a category before drawing.");
+            return;
+          }
+          color = categoryRadio.dataset.color;
+          drawing = true;
+          this.selector.start(e.clientX - this.image_frame.getBoundingClientRect().left, e.clientY - this.image_frame.getBoundingClientRect().top, color);
+        });
+        
+        document.addEventListener("mousemove", (e) => {
+          if (drawing) {
+            this.selector.update(e.clientX - this.image_frame.getBoundingClientRect().left, e.clientY - this.image_frame.getBoundingClientRect().top);
+          }
+        });
+        
+        document.addEventListener("mouseup", (e) => {
+          if (drawing) {
+            const category = document.querySelector("input[name='category']:checked");
+            const rect = this.selector.finish();
+            this.addEntry(rect, category.value, category.dataset.color, category.dataset.objectSelected);
+            drawing = false;
+          }
+        });
+      }
+      
+      addEntry(rect, category, color, objectSelected) {
+        const box = document.createElement("div");
+        box.classList.add("annotated_bounding_box");
+        box.style.borderColor = color;
+        
+        Object.assign(box.style, {
+          left: `${rect.left}px`,
+          top: `${rect.top}px`,
+          width: `${rect.width}px`,
+          height: `${rect.height}px`
+        });
+        
+        this.image_frame.appendChild(box);
+        
+        this.entries.push({
+          category,
+          objectSelected: parseInt(objectSelected),
+          left: Math.round(rect.left),
+          top: Math.round(rect.top),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height)
+        });
+      }
+      
+      undoLast() {
+        if (this.entries.length > 0) {
+          this.entries.pop();
+          const boxes = this.image_frame.querySelectorAll(".annotated_bounding_box");
+          const lastBox = boxes[boxes.length - 1];
+          if (lastBox) lastBox.remove();
+        }
+      }
+      
+      clearAll() {
+        this.entries = [];
+        this.image_frame.querySelectorAll(".annotated_bounding_box").forEach(box => box.remove());
+      }
+    }
+
+    const annotator = new BBoxAnnotator({
+      id: "#bbox_annotator",
+      url: "{{ image_url }}"
+    });
+
+    window.annotator = annotator;
+  })();
+
+  function submitAnnotations() {
+    const categories = [...new Set(annotator.entries.map(entry => entry.category))]; // Get unique categories
+    const result = categories.map(category => {
+      return annotator.entries
+        .filter(entry => entry.category === category)
+        .map(entry => ({
+          image_id: "sample_image", 
+          object_selected: entry.objectSelected,
+          x1: entry.left,
+          y1: entry.top,
+          x2: entry.left + entry.width,
+          y2: entry.top + entry.height
+        }));
+    });
+    console.log(JSON.stringify(result, null, 2));
+    return result;
+  }
+
+
+  document.addEventListener('DOMContentLoaded', () => {
+      const sendDataButton = document.getElementById('sendData');
+
+      sendDataButton.addEventListener('click', async () => {
+        const data = submitAnnotations()
+
+        try {
+          const response = await fetch('/receive-json/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+          });
+
+          const result = await response.json();
+          console.log('Response from server:', result);
+          alert(`Server Response: ${result.message}`);
+        } catch (error) {
+          console.error('Error:', error);
+          alert('Failed to send data!');
+        }
+      });
+    });
+</script>
+
+</body>
+</html>

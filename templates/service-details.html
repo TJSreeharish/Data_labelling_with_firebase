@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LabelHub</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="login-box">
+            <h2>Upload Your Images Here!</h2>
+            <form method="POST" action="image" enctype="multipart/form-data">
+                {% csrf_token %}
+                <p>Select Folder:</p>
+                <input type="file" name="files" webkitdirectory directory multiple /><br><br>
+                <input type="submit" value="Upload Folder" />
+            </form>
+        </div>
+        <div class="illustration">
+            <img src="up.jpg" alt="Laptop Illustration">
+        </div>
+    </div>
+</body>
+</html>

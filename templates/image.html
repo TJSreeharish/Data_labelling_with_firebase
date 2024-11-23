@@ -1,0 +1,47 @@
+<style>
+.home-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background-color: #010401; /* Change to any color you prefer */
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+/* Add hover effect for the button */
+.home-btn:hover {
+    background-color: #000801;
+}
+</style>
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LabelHub</title>
+    <link rel="stylesheet" href="{% static 'css/styles1.css' %}">
+</head>
+<body>
+    <a class="btn-getstarted home-btn" href="/">Home</a> <!-- Added home-btn class -->
+    
+    <div class="container">
+        <div class="login-box">
+            <h2>Upload Your Images Here!</h2>
+            <form method="POST" action="image" enctype="multipart/form-data">
+                {% csrf_token %}
+                <p>Select Folder:</p>
+                <input type="file" name="files" webkitdirectory directory multiple /><br><br>
+                <input type="submit" value="Upload Folder" />
+            </form>
+        </div>
+        <div class="illustration">
+            <img src="{% static 'img/up.jpg' %}" alt="Laptop Illustration">
+        </div>
+    </div>
+</body>
+</html>
